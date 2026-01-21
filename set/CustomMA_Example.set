@@ -1,0 +1,11 @@
+; saved automatically on 2026.01.17 12:00:00
+; Пример SET-файла для индикатора Custom Moving Average
+; Формат: ParameterName=Value||Start||Step||Stop||Optimize
+;
+; Комментарии начинаются с точки с запятой ";"
+; Параметры оптимизации опциональны
+
+MAPeriod=14||10||2||50||Y
+MAShift=0||0||1||5||N
+MAMethod=0||0||1||3||Y
+AppliedPrice=1||0||1||6||N

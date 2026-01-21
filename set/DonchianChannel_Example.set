@@ -1,0 +1,5 @@
+; Пример SET-файла для индикатора Donchian Channel
+;
+Period=20||10||5||50||Y
+Shift=0||0||1||3||N
+ChannelMode=0
