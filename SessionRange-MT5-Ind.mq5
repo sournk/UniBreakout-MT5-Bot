@@ -1,7 +1,7 @@
 //+------------------------------------------------------------------+
-//|                                                 SessionRange.mq5 |
-//|                                                                  |
-//|  Indicator displays High and Low of the previous trading session |
+//|                                         SessionRange-MT5-Ind.mq5 |
+//|                                                  Denis Kislitsyn |
+//|                                             https://kislitsyn.me |
 //+------------------------------------------------------------------+
 #property script_show_inputs
 #property strict
@@ -11,7 +11,7 @@
 #property link "https://kislitsyn.me/personal/algo"
 #property icon "/Images/favicon_64.ico"
 
-#property description "UniBreakout-MT5-Bot"
+#property description "Custom Session High/Low channel indicator"
 
 #property indicator_chart_window
 #property indicator_buffers 3

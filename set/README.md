@@ -1,254 +1,172 @@
-# CSetFileParser - Парсер SET-файлов MetaTrader 5
+# UniBreakout-MT5-Bot
 
-## Описание
+* Coding by Denis Kislitsyn | denis@kislitsyn.me | [kislitsyn.me](https://kislitsyn.me/personal/algo)
+* Version: 1.00
 
-Класс для чтения и парсинга SET-файлов MetaTrader 5, которые содержат параметры индикаторов и экспертов. Поддерживает конвертацию параметров в массив `MqlParam` для использования с функцией `iCustom()`.
-
-## Формат SET-файлов
-
-SET-файлы MetaTrader 5 имеют следующий формат:
-
+## Что нового?
 ```
-; Комментарий (строки начинающиеся с точки с запятой)
-ParameterName=Value||Start||Step||Stop||Optimize
+1.00: First version
 ```
 
-### Поля параметра:
+## Описание стратегии
 
-- **ParameterName** - имя параметра
-- **Value** - текущее значение параметра
-- **Start** - начальное значение для оптимизации (опционально)
-- **Step** - шаг оптимизации (опционально)
-- **Stop** - конечное значение для оптимизации (опционально)
-- **Optimize** - флаг оптимизации: Y/N или 1/0 (опционально)
+**UniBreakout-MT5-Bot** — универсальный торговый советник для торговли на пробой или отбой от границ сессионного диапазона. Бот определяет канал на основе заданной сессии и открывает позиции при пробое или отскоке от его границ.
 
-### Примеры:
+### Принцип работы
 
-```
-; Полный формат с параметрами оптимизации
-MAPeriod=14||10||2||50||Y
+Бот автоматически:
+1. **Определяет сессионный диапазон** — строит канал на основе high/low заданного временного окна, используя индикатор `SessionRange`
+2. **Ожидает сигнал** — следит за пробоем или отбоем от границ канала
+3. **Открывает позицию** — Breakout (по направлению пробоя) или Rebound (отскок от границы)
+4. **Устанавливает SL/TP** — по ATR, ближней/дальней границе или центру канала
+5. **Применяет TSL** — опциональный трейлинг-стоп на каждом баре
+6. **Управляет рисками** — расчет лота по MM с ограничением риска
 
-; Только значение, без оптимизации
-MAShift=0
+## Installation | Установка
 
-; С параметрами оптимизации, но оптимизация выключена
-AppliedPrice=1||0||1||6||N
-```
+См. [README_INSTALL.md](README_INSTALL.md)
 
-## Использование
+## Bot's Input Parameters
 
-### 1. Базовое использование
+#### 1. SESSION (S) — Параметры сессии
 
-```mql5
-#include <DKStdLib/Common/CSetFileParser.mqh>
+- **`S_STH`**: Session Start Hour [0-23]
+  - Час начала сессии для построения диапазона
+  - По умолчанию: `0`
 
-// Создаем парсер
-CSetFileParser parser;
+- **`S_STM`**: Session Start Min [0-59]
+  - Минута начала сессии
+  - По умолчанию: `0`
 
-// Загружаем SET-файл
-if(parser.LoadFromFile("MyIndicator.set")) {
-    // Конвертируем в MqlParam
-    MqlParam params[];
-    if(parser.ConvertToMqlParams(params)) {
-        // Создаем индикатор с параметрами из SET-файла
-        int handle = iCustom(_Symbol, _Period, "MyIndicator", params);
-    }
-}
-```
+- **`S_DUR`**: Session Duration min [0-1440]
+  - Длительность сессии в минутах
+  - По умолчанию: `1440` (24 часа)
 
-### 2. Использование в торговом боте
+- **`S_MOD`**: Session Mode
+  - **Тип**: `ENUM_SESSION_MODE`
+  - Режим расчета сессии (текущая/предыдущая)
+  - По умолчанию: `SESSION_MODE_PREV`
 
-```mql5
-class CUniversalBot {
-private:
-    CSetFileParser m_set_parser;
-    int m_indicator_handle;
-    
-public:
-    bool InitIndicator(string indicator_name, string set_file) {
-        // Загружаем параметры из SET-файла
-        if(!m_set_parser.LoadFromFile(set_file)) {
-            Print("Ошибка загрузки SET-файла");
-            return false;
-        }
-        
-        // Конвертируем в MqlParam
-        MqlParam params[];
-        if(!m_set_parser.ConvertToMqlParams(params)) {
-            Print("Ошибка конвертации параметров");
-            return false;
-        }
-        
-        // Создаем индикатор
-        m_indicator_handle = iCustom(_Symbol, _Period, indicator_name, params);
-        
-        return (m_indicator_handle != INVALID_HANDLE);
-    }
-};
-```
+#### 2. IN (I) — Параметры входа
 
-### 3. Получение информации о параметрах
+- **`I_DIR_MOD`**: In Dir Mode
+  - **Тип**: `ENUM_SETUP_MODE`
+  - Режим входа в позицию
+  - Варианты:
+    - `Breakout` — вход на пробой границы
+    - `Rebound` — вход на отбой от границы
+  - По умолчанию: `SETUP_MODE_BREAKOUT`
 
-```mql5
-CSetFileParser parser;
-parser.LoadFromFile("settings.set");
+- **`I_SLTP_MOD`**: SL/TP Mode
+  - **Тип**: `ENUM_SLTP_MODE`
+  - Режим расчета SL и TP
+  - Варианты:
+    - `SL by ATR / TP by RR` — SL по ATR, TP по соотношению RR
+    - `NEAREST` — SL или TP к ближней границе канала
+    - `CENTER` — SL или TP к центру канала
+    - `OUTER` — SL или TP к дальней границе канала
+  - По умолчанию: `SLTP_MODE_ATR`
 
-// Количество параметров
-int count = parser.GetParamsCount();
+- **`I_MM_MOD`**: Money Management Type
+  - **Тип**: `ENUM_MM_TYPE`
+  - Режим управления капиталом
+  - По умолчанию: `ENUM_MM_TYPE_AUTO_LIMIT_RISK`
 
-// Перебор всех параметров
-for(int i = 0; i < count; i++) {
-    string name = parser.GetParamName(i);
-    string value = parser.GetParamValue(i);
-    string type = parser.GetParamType(i);
-    
-    Print(name, " = ", value, " (", type, ")");
-    
-    // Проверка параметров оптимизации
-    if(parser.IsOptimizationEnabled(i)) {
-        string start, step, stop;
-        parser.GetOptimizationParams(i, start, step, stop);
-        Print("  Оптимизация: ", start, " -> ", stop, " шаг ", step);
-    }
-}
+- **`I_MM_VAL`**: Money Management Value
+  - Значение для расчета лота (> 0)
+  - По умолчанию: `1.0`
 
-// Вывод всех параметров в лог
-parser.PrintAll();
-```
+- **`I_ATR_PER`**: ATR Period
+  - Период ATR для расчета SL (> 0)
+  - По умолчанию: `14`
 
-## Методы класса
+- **`I_ATR_MUL`**: ATR SL Multiplicator
+  - Множитель ATR для SL (> 0)
+  - По умолчанию: `2.0`
 
-### Основные методы
+- **`I_TP_RR`**: TP RR
+  - Соотношение TP к риску (> 0)
+  - По умолчанию: `2.0`
 
-- `bool LoadFromFile(string filename)` - загрузить и распарсить SET-файл
-- `bool ConvertToMqlParams(MqlParam &params[])` - конвертировать в массив MqlParam
-- `int GetParamsCount()` - получить количество параметров
-- `void PrintAll()` - вывести все параметры в лог
+#### 3. OUT (O) — Параметры выхода
 
-### Методы доступа к параметрам
+- **`O_TSL_ENB`**: TSL on bar Enabled
+  - **Тип**: `bool`
+  - Включить трейлинг-стоп на каждом баре
+  - По умолчанию: `false`
 
-- `string GetParamName(int index)` - получить имя параметра
-- `string GetParamValue(int index)` - получить значение параметра
-- `string GetParamType(int index)` - получить тип параметра (int/double/string/bool)
-- `bool IsOptimizationEnabled(int index)` - проверить, включена ли оптимизация
-- `bool GetOptimizationParams(int index, string &start, string &step, string &stop)` - получить параметры оптимизации
+#### 4. FILTER (F) — Параметры фильтров
 
-## Поиск SET-файлов
+- **`F_DIR_MOD`**: Setup Mode
+  - **Тип**: `ENUM_TRADE_DIR`
+  - Ограничение направлений входа
+  - Варианты: `Both`, `Buy`, `Sell`
+  - По умолчанию: `Both`
 
-Класс автоматически ищет SET-файлы в следующих папках:
+- **`F_TIM_MON` - `F_TIM_SUN`**: Разрешенные временные интервалы
+  - **Формат**: `"HH:MM(:SS)"` (через `;` для нескольких)
+  - Пустая строка — торговля в этот день запрещена
+  - По умолчанию: `"00:00-23:59:59"`
 
-1. Полный путь (если указан)
-2. `MQL5/Files/`
-3. `MQL5/Presets/`
-4. `Tester/`
+#### 5. MISC (MS) — Служебные параметры
 
-## Определение типов
+- **`_MS_MGC`**: Expert Adviser ID - Magic
+  - Уникальный идентификатор советника
+  - По умолчанию: `20260121`
 
-Класс автоматически определяет типы параметров:
+- **`_MS_EGP`**: Expert Adviser Global Prefix
+  - Глобальный префикс для имени советника
+  - По умолчанию: `"UniBO"`
 
-- **int** - целые числа (например: 14, -5, 100)
-- **double** - числа с точкой (например: 1.5, 0.01, -3.14)
-- **bool** - true/false
-- **string** - всё остальное
+- **`_MS_LOG_LL`**: Log Level
+  - Уровень логирования: `ERROR`, `WARNING`, `INFO`, `DEBUG`, `TRACE`
+  - По умолчанию: `INFO`
 
-## Примеры SET-файлов
+- **`_MS_LOG_FI`**: Log Filter IN String
+  - Фильтр включения записей в лог (через `;`)
 
-### Пример 1: Moving Average
+- **`_MS_LOG_FO`**: Log Filter OUT String
+  - Фильтр исключения записей из лога (через `;`)
 
-Файл: `CustomMA_Example.set`
-```
-; Custom Moving Average Parameters
-MAPeriod=14||10||2||50||Y
-MAShift=0||0||1||5||N
-MAMethod=0||0||1||3||Y
-AppliedPrice=1||0||1||6||N
-```
+- **`_MS_COM_EN`**: Comment Enable
+  - Включить комментарий на графике
+  - По умолчанию: `true`
 
-### Пример 2: Donchian Channel
+- **`_MS_COM_IS`**: Comment Interval, ms
+  - Интервал обновления комментария
+  - По умолчанию: `30000`
 
-Файл: `DonchianChannel_Example.set`
-```
-; Donchian Channel Parameters
-Period=20||10||5||50||Y
-Shift=0||0||1||3||N
-ChannelMode=0
-```
+- **`_MS_COM_CW`**: Comment Custom Window
+  - Использовать кастомное окно
+  - По умолчанию: `false`
 
-### Пример 3: Pivot Points
+- **`_MS_HIN_N`**: On Chart Hints Count
+  - Количество подсказок на графике (<0-off; 0-no lim)
+  - По умолчанию: `3600`
 
-Файл: `PivotPoints_Example.set`
-```
-; Pivot Points Parameters
-PivotType=0||0||1||2||Y
-Timeframe=16408
-ShowHistory=true
-```
+- **`_MS_OTR_MOD`**: On Tester Result calculation Mode
+  - Режим расчета результатов: `Off`, `Pearson`, `Spearman`
+  - По умолчанию: `Spearman`
 
-## Тестирование
+- **`_MS_OTR_TF`**: On Tester Result Timeframe
+  - По умолчанию: `PERIOD_H1`
 
-Для тестирования парсера запустите скрипт:
+- **`_MS_TIM_MS`**: Timer Interval, ms
+  - По умолчанию: `60000`
 
-```bash
-test/TestCSetFileParser.mq5
-```
+## Особенности стратегии
 
-Скрипт:
-1. Загрузит SET-файл
-2. Распарсит параметры
-3. Конвертирует в MqlParam
-4. Создаст тестовый индикатор
-5. Выведет результаты в лог
+### Сессионный диапазон
+Бот строит канал на основе high/low за заданный период сессии. Можно использовать предыдущую или текущую сессию.
 
-## Создание SET-файлов
+### Режимы входа
+- **Breakout** — вход при пробое границы канала в направлении пробоя
+- **Rebound** — вход при касании границы канала в противоположном направлении
 
-### Способ 1: Через MetaEditor/MetaTrader
+### Гибкая настройка SL/TP
+- По ATR с заданным множителем
+- К ближней/дальней границе канала
+- К центру канала
 
-1. Откройте любой эксперт/индикатор
-2. Настройте параметры в диалоге
-3. Нажмите кнопку "Сохранить"
-4. Файл сохранится в `MQL5/Presets/`
-
-### Способ 2: Вручную
-
-Создайте текстовый файл с расширением `.set` в папке `MQL5/Files/` или `MQL5/Presets/`
-
-## Особенности
-
-- ✅ Автоматическое определение типов параметров
-- ✅ Поддержка параметров оптимизации
-- ✅ Пропуск комментариев (`;`)
-- ✅ Поддержка bool значений (true/false)
-- ✅ Поиск файлов в нескольких папках
-- ✅ Подробное логирование процесса загрузки
-
-## Интеграция с UniBreakout Bot
-
-В вашем боте можно использовать так:
-
-```mql5
-// В параметрах бота
-input string InpIndicatorName = "MyIndicator";
-input string InpIndicatorSetFile = "MyIndicator.set";
-input int    InpIndicatorBuffer = 0;
-
-// В классе бота
-CSetFileParser m_parser;
-
-bool OnInit() {
-    MqlParam params[];
-    
-    // Загружаем параметры из SET-файла
-    if(m_parser.LoadFromFile(InpIndicatorSetFile)) {
-        m_parser.ConvertToMqlParams(params);
-    }
-    
-    // Создаем индикатор
-    int handle = iCustom(_Symbol, _Period, InpIndicatorName, params);
-    
-    return (handle != INVALID_HANDLE);
-}
-```
-
-## Лицензия
-
-Copyright 2026, Denis K.
+### Временные фильтры
+Торговля только в определенные дни и часы. Полезно для исключения периодов низкой ликвидности.
