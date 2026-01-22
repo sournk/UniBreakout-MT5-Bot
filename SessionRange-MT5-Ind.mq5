@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property script_show_inputs
 #property strict
-#define VERSION "1.01"
+#define VERSION "1.00"
 #property version VERSION
 #property copyright "Denis Kislitsyn"
 #property link "https://kislitsyn.me/personal/algo"
