@@ -8,7 +8,7 @@
 #include "../../MqlParams/MqlParams.mqh"
 
 
-#define INDICATOR_NAME_SessionRange "SessionRange"
+#define INDICATOR_NAME_SessionRange "SessionRange-MT5-Ind"
 #define INDICATOR_BUFFER_COUNT_SessionRange 3
 #define INITIAL_BUFFER_SIZE_SessionRange 2048
 
